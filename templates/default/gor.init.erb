@@ -1,0 +1,112 @@
+#!/usr/bin/env bash
+# Generated & Managed by Chef for <%= node[:fqdn] %>#
+### BEGIN INIT INFO
+# Provides:
+# Required-Start:    $remote_fs $syslog
+# Required-Stop:     $remote_fs $syslog
+# Default-Start:     2 3 4 5
+# Default-Stop:      0 1 6
+# Short-Description: Start daemon at boot time
+# Description:       Enable service provided by daemon.
+### END INIT INFO
+
+# [Set limits for environments ignoring `/etc/security/limits.d`]
+ulimit -n <%= node['gor']['limits']['nofile'] %>
+ulimit -l <%= node['gor']['limits']['memlock'] %>
+
+
+dir="/usr/local/gor/"
+cmd="<%= node['gor']['install_dir'] %>/gor --input-raw :<%= node['gor']['port'] %> \
+<% @node_group.each do |node| -%>
+--output-http http://<%= node %> \
+<% end -%>
+--output-http-stats \
+-verbose=true"
+
+user=<%= node['gor']['user'] %>
+name="Gor Service"
+pid_file=<%= node['gor']['pid_file']  %>
+stdout_log=<%= node['gor']['logs_dir']  %>/gor.log
+stderr_log=<%= node['gor']['logs_dir']  %>/gor_error.log
+
+if [ -f $pid_file ]
+then
+    print_pid=$(cat $pid_file)
+fi
+
+
+
+get_pid() {
+    cat "$pid_file"
+}
+
+is_running() {
+    [ -f "$pid_file" ] && ps `get_pid` > /dev/null 2>&1
+}
+
+case "$1" in
+    start)
+    if is_running; then
+        echo -e "\033[1;31;40m[!]$name Already started with pid $print_pid[!]\033[0m"
+    else
+         echo -e "\033[1mStarting $name...\033[0m"
+        cd "$dir"
+        sudo $cmd >> "$stdout_log" 2>> "$stderr_log" &
+        echo $! > "$pid_file"
+        if ! is_running; then
+            echo "Unable to start, see $stdout_log and $stderr_log"
+            exit 1
+        fi
+    fi
+    ;;
+    stop)
+    if is_running; then
+        echo -n -e "\033[1mStopping $name..\033[0m"
+        kill `get_pid`
+        for i in {1..10}
+        do
+            if ! is_running; then
+                break
+            fi
+
+            echo -n "."
+            sleep 1
+        done
+        echo
+
+        if is_running; then
+            echo "$name Not stopped; may still be shutting down or shutdown may have failed"
+            exit 1
+        else
+            echo -e "\033[1m$name is Stopped\033[0m"
+            if [ -f "$pid_file" ]; then
+                rm "$pid_file"
+            fi
+        fi
+    else
+        echo -e "\033[1m$name is not running\033[0m"
+    fi
+    ;;
+    restart)
+    $0 stop
+    if is_running; then
+        echo "Unable to stop, will not attempt to start"
+        exit 1
+    fi
+    $0 start
+    ;;
+    status)
+    if is_running; then
+        echo -e "\033[1;37;46m $name is Running with pid $print_pid\033[0m"
+    else
+        echo -e "\033[1;31;40m[!]$name is stopped [!]\033[0m"
+        exit 1
+    fi
+    ;;
+    *)
+    echo "Usage: $0 {start|stop|restart|status}"
+    exit 1
+    ;;
+esac
+
+exit 0
