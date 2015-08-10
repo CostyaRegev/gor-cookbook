@@ -1,6 +1,6 @@
 name             'gor-cookbook'
 maintainer       'Costya.regev@me.com'
-maintainer_email 'Costya@totango.com'
+maintainer_email 'Costya.regev@me.com'
 license          'All rights reserved'
 description      'Installs/Configures gor-cookbook'
 long_description IO.read(File.join(File.dirname(__FILE__), 'README.md'))
